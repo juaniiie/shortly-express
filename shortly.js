@@ -76,7 +76,35 @@ function(req, res) {
 // Write your authentication routes here
 /************************************************************/
 
+app.post('/signup',
+function (req, res) {
+  var username = req.body.username;
+  var password = req.body.password;
+  console.log('Account credentials: ' + username + ' ' + password);
+  // Generate a SALT value and create a new password
+  Users.create({
+    username: username,
+    password: password
+  }).then(function (newUser) {
+    console.log('User was created!');
+    res.redirect('/');
+  });
+});
 
+app.post('/login',
+function (req, res) {
+  var username = req.body.username;
+  var password = req.body.password;
+  console.log('Account credentials: ' + username + ' ' + password);
+
+  Users.create({
+    username: username,
+    password: password
+  }).then(function (newUser) {
+    console.log('User was created!');
+    res.redirect('/');
+  });
+});
 
 /************************************************************/
 // Handle the wildcard route last - if all other routes fail
