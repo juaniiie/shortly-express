@@ -4,7 +4,7 @@ var partials = require('express-partials');
 var bodyParser = require('body-parser');
 
 // var cookieParser = require('cookie-parser');
-// var session = require('express-session');
+var session = require('express-session');
 
 
 var db = require('./app/config');
@@ -19,26 +19,36 @@ var app = express();
 app.set('views', __dirname + '/views');
 app.set('view engine', 'ejs');
 app.use(partials());
+
+app.use(session({ secret: 'SUPERSECRETSESSIONSOMETHING'}));
+
 // Parse JSON (uniform resource locators)
 app.use(bodyParser.json());
 // Parse forms (signup/login)
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 
-// app.use(cookieParser('shhhh, very secret'));
-// app.use(session());
-// app.use(session({ secret: 'session secret', cookie: { maxAge: 60000 }}));
-// https://codeforgeek.com/2014/09/manage-session-using-node-js-express-4/
+var checkPrivelages = function (req, res, next) {
+  req.session.method = req.method;
+  req.session.url = req.url;
+  if (req.url === '/signup' || req.url === '/login' || req.url === '/logout') {
+    req.session.message = 'Access granted!';
+    console.log(req.session);
+    next();
+  } else if (req.session.username !== undefined && req.session.username !== '') {
+    req.session.message = 'Access granted!';
+    console.log(req.session);
+    next();
+  } else {
+    req.session.message = 'Access denied!';
+    console.log(req.session);
+    res.redirect('/login');
+  }
+  
+}
 
 app.use(function (req, res, next) {
-  console.log(req.url);
-  if (req.url === '/' || req.url === '/signup' || req.url === '/login') {
-    next();
-  } else if (!req.session) {
-    res.render('login');
-  } else {
-    next();
-  }
+  checkPrivelages(req, res, next);
 });
 
 app.get('/', 
@@ -106,7 +116,6 @@ function(req, res) {
 
 app.post('/signup',
 function (req, res) {
-  console.log('got here');
   var username = req.body.username;
   var password = req.body.password;
 
@@ -114,10 +123,14 @@ function (req, res) {
     username: username,
     password: password
   }).then(function (newUser) {
-    console.log('NEW USER??');
-    console.log(newUser);
-    console.log('User was created!');
-    res.redirect('/');
+    req.session.regenerate(function () {
+      req.session.username = newUser.attributes.username;
+      // console.log(newUser);
+      console.log('===========================');
+      console.log('User was created!');
+      console.log('===========================');
+      res.redirect('/');
+    });
   });
 
   // new User ({username: username}).fetch().then(function(user){
@@ -146,18 +159,36 @@ function (req, res) {
     if (user) {
       var salt = user.attributes.salt;
       if(util.hashSaltMatch(password, salt, user.attributes.password)) {
-        console.log('User logged in!');
-        res.redirect('/');
+        req.session.regenerate(function () {
+          req.session.username = user.attributes.username;
+          console.log('===========================');
+          console.log('User logged in!');
+          console.log('===========================');
+          res.redirect('/');
+        });
       } else {
         // Wrong password
+        console.log('===========================');
         console.log('User entered incorrect password!');
+        console.log('===========================');
         res.redirect('/login');
       }
     } else {
       // User does not exist
+      console.log('===========================');
       console.log('User does not exist!');
+      console.log('===========================');
       res.redirect('/login');
     }
+  });
+});
+
+app.get('/logout', function (req, res){
+  req.session.destroy(function(){
+    console.log('===========================');
+    console.log('User logged out!');
+    console.log('===========================');
+    res.redirect('/login');
   });
 });
 
